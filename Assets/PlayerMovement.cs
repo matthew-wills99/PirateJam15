@@ -16,11 +16,11 @@ public class PlayerMovement : MonoBehaviour
     private float moveSpeed;
     private float horizontalMovement;
 
-    public float dashPower = 26f;
+    /*public float dashPower = 26f;
     private bool isDashing = false;
     public int maxDashes = 1;
     private int dashesRemaining = 1;
-    private float dashTime = 0.5f;
+    private float dashTime = 0.5f;*/
 
     [Header("Jumping")]
     public float jumpPower = 5f;
@@ -117,7 +117,7 @@ public class PlayerMovement : MonoBehaviour
             SwitchAnim("Idle");
         }
 
-        if(!isWallJumping || !isDashing)
+        if(!isWallJumping)
         {
             rb.velocity = new Vector2(horizontalMovement * moveSpeed, rb.velocity.y);
             Flip();
@@ -136,11 +136,6 @@ public class PlayerMovement : MonoBehaviour
         {
             rb.gravityScale = baseGravity;
         }
-
-        if(!isDashing)
-        {
-            originalGravity = rb.gravityScale;
-        }
     }
 
     private void ProcessWallSlide()
@@ -149,6 +144,7 @@ public class PlayerMovement : MonoBehaviour
         {
             isWallSliding = true;
             rb.velocity = new Vector2(rb.velocity.x, Mathf.Max(rb.velocity.y, -wallSlideSpeed));
+            Debug.Log($"Wall Sliding");
         }
         else
         {
@@ -160,6 +156,7 @@ public class PlayerMovement : MonoBehaviour
     {
         if(isWallSliding)
         {
+            Debug.Log("Wall Jump");
             isWallJumping = false;
             wallJumpDirection = -transform.localScale.x;
             wallJumpTimer = wallJumpTime;
@@ -184,6 +181,25 @@ public class PlayerMovement : MonoBehaviour
 
     public void Jump(InputAction.CallbackContext context)
     {
+        if(context.started && wallJumpTimer > 0f)
+        {
+            Debug.Log("here");
+            isWallJumping = true;
+            rb.velocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
+            wallJumpTimer = 0;
+
+            if(transform.localScale.x != wallJumpDirection)
+            {
+                isFacingRight = !isFacingRight;
+                Vector3 ls = transform.localScale;
+                ls.x *= -1f;
+                transform.localScale = ls;
+            }
+
+            Invoke(nameof(CancelWallJump), wallJumpTime + 0.1f); // wall jump = 0.5s -- jump again = 0.6s
+            return;
+        }
+
         double startTime = context.startTime;
         if(jumpsRemaining > 0)
         {
@@ -219,58 +235,6 @@ public class PlayerMovement : MonoBehaviour
                 anim.SetBool("FullCharge", false);
             }
         }
-
-        if(context.performed && wallJumpTimer > 0f)
-        {
-            isWallJumping = true;
-            rb.velocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
-            wallJumpTimer = 0;
-
-            if(transform.localScale.x != wallJumpDirection)
-            {
-                isFacingRight = !isFacingRight;
-                Vector3 ls = transform.localScale;
-                ls.x *= -1f;
-                transform.localScale = ls;
-            }
-
-            Invoke(nameof(CancelWallJump), wallJumpTime + 0.1f); // wall jump = 0.5s -- jump again = 0.6s
-        }
-    }
-
-    public void Dash(InputAction.CallbackContext context)
-    {
-        if(dashesRemaining > 0)
-        {
-            if(context.started)
-            {
-                isDashing = true;
-                Debug.Log(isDashing);
-                originalGravity = rb.gravityScale;
-                rb.gravityScale = 0f;
-                Vector2 force = new Vector2(dashPower * 200, 0);
-                if(!isFacingRight)
-                {
-                    force.x *= -1;
-                }
-                // why instant?
-                rb.AddForce(force);
-                rb.velocity = new Vector2(rb.velocity.x, 0f);
-
-                dashesRemaining--;
-                Invoke(nameof(CancelDash), dashTime + 0.1f);
-
-            }
-        }
-    }
-
-    private void CancelDash()
-    {
-        isDashing = false;
-        Debug.Log(isDashing);
-        rb.gravityScale = originalGravity;
-        dashesRemaining += 1;
-        Debug.Log($"added dash to: {dashesRemaining}");
     }
 
     private void GroundCheck()
